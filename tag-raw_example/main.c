@@ -40,10 +40,49 @@ int main(int argc, char ** argv) {
         /* Raw access to tag */
         switch (g_tagInfos.technology)
         {
+            case TARGET_TYPE_ISO14443_3A:
+            {
+                unsigned char GetVersion[]={0x90, 0x60, 0x00, 0x00, 0x00};
+                unsigned char GetVersion2[]={0x90, 0xAF, 0x00, 0x00, 0x00};
+                unsigned char Resp[256];
+                unsigned char Version[28];
+
+                /* Check if discovered tag is not ISO14443-4 */
+                if(g_tagInfos.protocol != NFA_PROTOCOL_ISO_DEP) {
+                    printf("Unsupported tag type, not ISO14443-4 compliant\n");
+                    break;
+                }
+
+                printf("GetVersion : ");
+                res = nfcTag_transceive(g_tagInfos.handle, GetVersion, sizeof(GetVersion), Resp, 16, 500);
+                if(0x00 == res) {
+                    printf("Get Version fisrt step failed\n");
+                    break;
+                }
+                memcpy(&Version[0], Resp, 7);
+                res = nfcTag_transceive(g_tagInfos.handle, GetVersion2, sizeof(GetVersion2), Resp, 16, 500);
+                if(0x00 == res) {
+                    printf("Get Version second step failed\n");
+                    break;
+                }
+                memcpy(&Version[7], Resp, 7);
+                res = nfcTag_transceive(g_tagInfos.handle, GetVersion2, sizeof(GetVersion2), Resp, 16, 500);
+                if(0x00 == res) {
+                    printf("Get Version third step failed\n");
+                    break;
+                }
+                memcpy(&Version[14], Resp, 14);
+                for(int i=0; i<sizeof(Version); i++) printf("%.02X", Version[i]);
+                printf("\n");
+            } break;
+
             case TARGET_TYPE_MIFARE_UL:
             {
                 unsigned char ReadCmd[] = {0x30U, /*block*/ 0x00};
+                unsigned char SectorSelect1Cmd[] = {0xC2U, 0xFF};
+                unsigned char SectorSelect2Cmd[] = {0x01U, 0x00, 0x00, 0x00};
                 unsigned char Resp[16];
+
                 printf("MifareUL Read command: ");
                 for(i = 0x00; i < (unsigned int) sizeof(ReadCmd) ; i++) printf("%02X ", ReadCmd[i]); printf("\n");
                 res = nfcTag_transceive(g_tagInfos.handle, ReadCmd, sizeof(ReadCmd), Resp, sizeof(Resp), 500);
@@ -54,6 +93,40 @@ int main(int argc, char ** argv) {
                     printf("MifareUL Read command sent - Response: ");
                     for(i = 0x00; i < (unsigned int)res; i++) printf("%02X ", Resp[i]); printf("\n\n");
                 }
+
+                printf("MifareUL SectorSelect1 command: ");
+                for(i = 0x00; i < (unsigned int) sizeof(SectorSelect1Cmd) ; i++) printf("%02X ", SectorSelect1Cmd[i]); printf("\n");
+                res = nfcTag_transceive(g_tagInfos.handle, SectorSelect1Cmd, sizeof(SectorSelect1Cmd), Resp, sizeof(Resp), 500);
+                if(0x00 == res) {
+                    printf("RAW Tag transceive failed\n");
+                }
+                else {
+                    printf("MifareUL SectorSelect1 command sent - Response: ");
+                    for(i = 0x00; i < (unsigned int)res; i++) printf("%02X ", Resp[i]); printf("\n\n");
+                }
+
+                printf("MifareUL SectorSelect2 command: ");
+                for(i = 0x00; i < (unsigned int) sizeof(SectorSelect2Cmd) ; i++) printf("%02X ", SectorSelect2Cmd[i]); printf("\n");
+                res = nfcTag_transceive(g_tagInfos.handle, SectorSelect2Cmd, sizeof(SectorSelect2Cmd), Resp, sizeof(Resp), 0);
+                if(0x00 != res) {
+                    printf("RAW Tag transceive failed\n");
+                }
+                else {
+                    printf("MifareUL SectorSelect2 command succeed\n");
+                }
+
+                printf("MifareUL Read command: ");
+                ReadCmd[1] = 0xE0;                
+                for(i = 0x00; i < (unsigned int) sizeof(ReadCmd) ; i++) printf("%02X ", ReadCmd[i]); printf("\n");
+                res = nfcTag_transceive(g_tagInfos.handle, ReadCmd, sizeof(ReadCmd), Resp, sizeof(Resp), 500);
+                if(0x00 == res) {
+                    printf("RAW Tag transceive failed\n");
+                }
+                else {
+                    printf("MifareUL Read command sent - Response: ");
+                    for(i = 0x00; i < (unsigned int)res; i++) printf("%02X ", Resp[i]); printf("\n\n");
+                }
+
             } break;
 
             case TARGET_TYPE_MIFARE_CLASSIC:
@@ -113,7 +186,7 @@ int main(int argc, char ** argv) {
 
             default:
             {
-                printf("Unsupported tag type\n");
+                printf("Unsupported tag type = %d\n", g_tagInfos.technology);
             } break;
         }
     }while(1);
