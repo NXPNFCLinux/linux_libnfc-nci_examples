@@ -67,16 +67,19 @@ int main(int argc, char ** argv) {
                     else
                     {
         				printf("Tag formating failed\n");
+                        continue;
                     }
                 }
                 else
                 {
     				printf("Tag formating failed\n");
+                    continue;
                 }
             }
             else
             {
                 printf("Tag is not formatable\n");
+                continue;
             }
         }
  
